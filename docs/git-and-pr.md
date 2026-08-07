@@ -53,11 +53,15 @@ Before committing, review your own diff: the code runs, it's auto-formatted (nev
 are no debug logs / dead code / unrelated changes, no secrets, the lockfile is committed if
 dependencies changed, and imports use the project's path aliases.
 
-## Independent adversarial QA before the PR
+## Independent adversarial QA, then the owner, before the PR
 
 A slice does not get a PR until a **fresh agent with no prior context** has tried to break it and
 written the missing tests, and the author has fixed what it found. Gate-green is _developer-done_,
 not _review-done_. (Full loop in [`agent-workflow.md`](./agent-workflow.md).)
+
+QA-passed is still not PR-ready: **the owner reads the code next, and the PR opens only after that
+review.** Opening the PR is the owner's call, not the end of the agent's loop — on a human team,
+teammates only ever see owner-reviewed PRs.
 
 ## Opening the PR
 

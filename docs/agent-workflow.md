@@ -97,6 +97,9 @@ This is the non-negotiable. Gate-green is _developer-done_, not _review-done_.
   optimized past, and **write the missing edge/error/boundary test cases**.
 - **The reviewer reviews; the author fixes — don't collapse the two.** QA finds and writes the
   failing case; the owning author fixes; QA re-checks. Loop until the slice survives.
+- **The owner is the gate for the PR itself.** A slice that survives QA is still not a pull request.
+  The owner reads the code, and the PR opens only after that review — so the workflow holds
+  unchanged on a human team, where teammates only ever see owner-reviewed PRs.
 
 ## Agent teams: own a slice, isolate it, curate the history
 
