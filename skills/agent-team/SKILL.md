@@ -1,0 +1,234 @@
+---
+name: agent-team
+description: Spawn and orchestrate an experimental Claude Code agent team (multiple coordinating teammates with their own context windows that share a task list and message each other) for work in this repo. Use whenever the user wants to run an agent team, spin up teammates, "fan this out to agents", or parallelize a job across independent agents — for any of four jobs; true research into framework/library facts (cited digests — NOT design proposals; design decisions happen in conversation with the owner), a parallel code review, debugging via competing hypotheses, or a cross-layer / multi-module coding feature where each agent owns a distinct slice. Trigger on "spawn a team", "agent team", "use teammates", "parallel review", "investigate with competing hypotheses", or any task large and divisible enough that several independent agents beat one session. Models — default every teammate to the strongest general-purpose model available; reserve the top reasoning tier for the hardest work and a slice's main adversarial-QA pass. This skill makes you the team LEAD: it covers preflight (the experimental flag), the team-vs-subagent decision, how to brief teammates, splitting work by file ownership, and how the lead curates history and merges. Prefer it over hand-rolling multi-agent coordination.
+---
+
+# Agent Team — spawn & orchestrate (experimental)
+
+You are about to act as the **team lead**: spawn coordinating Claude Code teammates, divide the
+work, keep them on track, and synthesize/curate the result. This skill is the playbook for doing
+that well. It is grounded in:
+
+- The repo's own operating manual: [`docs/agent-workflow.md`](../../docs/agent-workflow.md) —
+  research → drafts → debate → synthesis, briefing, own-a-slice, lead curates.
+- Continuous refinement: every run of this pattern leaves its record in the PR body and git history,
+  so the practice improves with use.
+- Official guidance: [Agent teams](https://code.claude.com/docs/en/agent-teams) and
+  [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).
+
+**Read this whole file, then open the one mode reference that matches the job.** Don't run all four
+— pick one.
+
+---
+
+## Preflight — confirm a team is the right tool, then that it's enabled
+
+**First decide: team, subagents, or solo?** A team costs **significantly more tokens** than a single
+session (each teammate is a full Claude instance) and adds coordination overhead. The official
+guidance: teams are for work where **parallel exploration adds real value** and workers **need to
+talk to each other** — challenge findings, share hypotheses, coordinate a shared task list. If
+workers only need to go fetch a result and report back, use **subagents** (cheaper, the `Agent`
+tool). If the work is sequential, touches the same files, or has many dependencies, use a **single
+session**. Default to the smallest tool that fits.
+
+| Signal                                                                | Reach for          |
+| --------------------------------------------------------------------- | ------------------ |
+| Workers must debate / disprove each other / converge on consensus     | **Team**           |
+| Independent slices over **distinct file sets**, shipped in parallel   | **Team**           |
+| Verbose work to isolate (log-crunch, doc-fetch) — only result matters | **Subagents**      |
+| Sequential, same-file, or dependency-heavy                            | **Single session** |
+
+**Staffing can change by phase — re-run this test per phase; don't lock in "team" for the whole
+job.** Most real tasks have one phase that wants a team and another that doesn't. The sharpest case
+is **debugging**: pure root-cause _diagnosis_ is read-only and is often best as parallel
+**subagents** (use a competing-hypotheses _team_ only when theories genuinely need to debate and
+disprove each other), while the **multi-file fix** afterward is a team. Don't pay for a team on a
+phase a cheaper tool covers just because a later phase needs one. When a mode reference says "spawn
+N teammates," it assumes you've already passed this test _for that phase_ — if a phase is read-only
+fan-out with no cross-talk, downgrade it to subagents and say so.
+
+**Then confirm the experimental flag is on.** Agent teams are **disabled by default**; without
+`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in settings/env, no team forms and no teammate spawns.
+Verify before you promise a team:
+
+```bash
+grep -r CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS ~/.claude/settings.json .claude/settings*.json 2>/dev/null \
+  || echo "NOT SET — agent teams are disabled; tell the user to add it to settings.json env and restart"
+```
+
+> **Verified against [the agent-teams docs](https://code.claude.com/docs/en/agent-teams) on
+> 2026-08-06:** the flag is still required — _"Agent teams are experimental and disabled by
+> default."_ Re-check before trusting this; the feature is experimental and this is exactly the
+> class of fact that goes stale silently. The `TeamCreate` / `TeamDelete` tools that older guides
+> mention **no longer exist**, and team cleanup is now automatic on session exit — if you read a
+> playbook that tells you to create and name a team first, it predates v2.1.178.
+
+If it's unset, stop and tell the user — spawning will silently do nothing otherwise.
+
+---
+
+## The lead stays a director, not a coder (owner's standing preference)
+
+**The owner's working identity is "I direct what we build; the agent writes the code"**
+(`preferences.md`). Honor it literally: **you — Claude #1, the owner's conversation partner — do not
+write the feature code.** Even when the Preflight test says the work would fit a single session
+(small, same-file, sequential), delegate the implementation to **one coder teammate** in its own
+context window, and its adversarial check to a **fresh QA teammate** in another. You brief, monitor,
+curate, run the gate to verify, and think alongside the owner — you don't author.
+
+**Why this overrides the token-cost right-sizing above.** The point isn't parallelism — it's keeping
+_your_ context clean and **interruptible**. The owner stays in the loop and asks architecture
+questions mid-flight; a lead buried in implementation state has to drop and reload it on every
+question. A lead that never authors is always ready to reason about the system. The separation is
+the deliverable, and one extra agent is a price worth paying for it — so for **coding work the floor
+is lead + one coder (+ QA), never the lead authoring solo.** (This is the concrete, up-front form of
+"if the lead starts doing the work instead of delegating, stop," below.)
+
+**What the lead still does directly:** the non-authoring mechanics — git curation, running the gate
+to verify a slice, and quick reads to answer the owner — none of which bury the context the way
+writing a feature does. (Research/review/debug fan-out is unchanged; this rule is about not sitting
+in the _implementation_ seat.)
+
+---
+
+## The universal mechanics (apply to every mode)
+
+These hold no matter which mode you pick. The mode reference adds the mode-specific recipe on top.
+
+**Team size & task sizing** (from the official best-practices):
+
+- **3–5 teammates** is the sweet spot. Three focused teammates beat five scattered ones. Scale up
+  only when the work genuinely parallelizes.
+- **~5–6 tasks per teammate** keeps everyone busy and lets you reassign if one gets stuck.
+- A task is a **self-contained unit that produces a clear deliverable** (a function, a test file, a
+  review, a draft). Too small → coordination overhead exceeds benefit. Too large → teammates run too
+  long without check-ins and waste effort.
+
+**Briefing — every spawn prompt must be self-contained** (`agent-workflow.md`). Teammates start with
+a **fresh, isolated context**: they load `CLAUDE.md`/`AGENTS.md`, skills, and MCP servers, but they
+do **not** see your conversation history or anything you've read. The spawn prompt is the only
+channel in. Every brief includes:
+
+- [ ] **Objective** — one crisp task, not a grab-bag.
+- [ ] **Source-of-truth files by path** — name the version-exact installed docs (e.g.
+      `node_modules/<pkg>/…`), the binding repo rules, the repo's system-model / architecture doc,
+      and the ground-truth files it must open. It can't see what you read.
+- [ ] **Boundaries** — what's out of scope, what not to touch, which decisions are binding, and
+      (critically) **which files this teammate owns** so two teammates never edit the same file.
+- [ ] **Output format** — a **dense, cited digest** (or, for coding, a gate-green slice + summary),
+      not raw output.
+- [ ] **Model tier** — default every teammate to the **strongest general-purpose model available**,
+      and reserve the **top reasoning tier** for work where it demonstrably pays: the hardest
+      engine/contrast work and a slice's **main adversarial-QA pass**. Tier per phase, not per
+      teammate — a QA **re-check** drops a tier when the findings being re-verified are trivial. Say
+      the tier explicitly in every spawn. (Named model tiers go stale fast; pick from what's current
+      at spawn time, not from this file.)
+- [ ] **Cite-don't-remember** — restate it: "verify framework claims against the version-exact docs
+      installed in `node_modules/`; don't work from memory." On any stack newer than the model's
+      training cutoff, memorized APIs are wrong often enough to be dangerous — name the repo's own
+      entry-point rule if it has one.
+
+Spawn teammates with predictable names so you can address them later ("call them Architect, Theming,
+…"). You can spawn a teammate **using a subagent definition** (e.g. `feature-dev:code-reviewer`,
+`Explore`) to reuse a role's tool-allowlist and system prompt — mention the agent type in the spawn
+instruction.
+
+**Own the permission surface — don't make the owner babysit** (`agent-workflow.md`). Set the posture
+once at spawn, then clear teammates' permission requests yourself; escalate to the owner only for
+genuinely out-of-policy actions. For the **coding mode** this is mostly free: give each teammate an
+**in-root git worktree** at `.claude/worktrees/<slug>/` (never the ephemeral `isolation: "worktree"`
+flag, which lands outside the root) so its edits sit inside cwd scope and `acceptEdits` auto-accepts
+them with no prompts — full recipe in [`references/coding-feature.md`](references/coding-feature.md)
+step 3.
+
+**Two failure modes to design against** (both documented):
+
+- **Don't add agents to fix coordination.** When teammates duplicate or miss work, the fix is a
+  **sharper delegation prompt**, not more teammates
+  ([Anthropic multi-agent research](https://www.anthropic.com/engineering/multi-agent-research-system)).
+- **Synthesis must not smooth a fake consensus.** Where teammates genuinely disagree, resolve it
+  explicitly and say which view won **and why** — never paper over a real conflict with a tidy
+  summary. A tidy paragraph over a real conflict destroys the one thing the debate produced.
+
+**Monitor & steer.** Don't let the team run unattended — check progress, redirect approaches that
+aren't working, and synthesize findings as they arrive. If the lead (you) starts doing the work
+instead of delegating, stop and wait for teammates. Known experimental quirks to watch: task status
+can lag (nudge a teammate to mark its task done so dependents unblock); resume/rewind don't restore
+in-process teammates (re-spawn if needed).
+
+**Quality gates via hooks (optional but powerful).** `TeammateIdle`, `TaskCreated`, and
+`TaskCompleted` hooks can **exit code 2 to send feedback and keep a teammate working** — e.g. block
+a task from being marked complete until the gate is green. Use this to enforce the repo's own
+definition-of-done / gate doc on coding slices.
+
+---
+
+## Pick the mode
+
+Open the matching reference and follow its recipe. Each reference assumes you've read the Preflight
+and universal-mechanics sections above.
+
+| The job in front of you                                                                                                    | Mode                  | Reference                                                            |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------- |
+| **True research** — version-exact framework/library behavior, an external standard, an unfamiliar API. Facts, not designs. | Research (facts only) | [`references/research-decision.md`](references/research-decision.md) |
+| **Review** a diff / PR / branch across independent quality lenses                                                          | Parallel review       | [`references/code-review.md`](references/code-review.md)             |
+| **Debug** something with an unclear root cause — several plausible theories                                                | Competing hypotheses  | [`references/debugging.md`](references/debugging.md)                 |
+| **Build** a feature that spans layers/modules, splittable into slices over distinct files                                  | Coding feature        | [`references/coding-feature.md`](references/coding-feature.md)       |
+
+### Where design sits — the one line worth getting right
+
+**Product and interface design is not a team job.** It happens **in conversation with the owner** —
+their requirements, taste, and insights drive the shape; owner intent is the most important input,
+and agents drafting blind to it optimize confidently for the wrong thing. Here agents **verify** an
+emerging design rather than propose one: cited fact digests for framework behavior, clickable
+**spikes** as the ratification artifact (the owner reacts to working behavior, not documents), and
+an adversarial review of the chosen direction when it needs pressure-testing. Explain designs
+in-conversation in plain language; file attachments and mode jargon are not "showing."
+
+**Architecture-class decisions are the exception, and they earn it.** When a call is hard to
+reverse, crosses a module or package boundary, or locks an external contract, enumerating genuinely
+independent options is worth the token premium — so run the decision loop: **research → N
+independent `architect` drafts → `devils-advocate` → synthesis** (see
+[`../../agents/`](../../agents/)). Drafters work blind to each other; the critic must cite a source
+and must concede when the rebuttal is sound.
+
+**The test between them:** would a wrong answer here be expensive to undo? Architecture — the data
+model, the module boundary, the public signature — usually yes, so generate options. What a thing
+should _look like_ or _feel like_ — usually no, and the owner already holds the intent, so don't
+have agents guess at it.
+
+**And a debate is a hypothesis, not a decision.** Independent drafting plus adversarial
+cross-examination enumerates options and kills weak arguments; it is powerless against a false
+premise every participant shares. If a load-bearing claim is testable, **stop the debate and measure
+it** — then feed the result back. The lead's highest-value move is finding the claim everyone is
+standing on and going to check it.
+
+If the user's ask doesn't fit a mode, the honest answer may be "this doesn't need a team" — say so
+and propose subagents or a single session instead (see Preflight).
+
+---
+
+## Closing the loop (lead's job at the end)
+
+However the mode ends, you (the lead) finish it:
+
+- **Research / review / debugging** → **synthesize** into one cited artifact. Resolve conflicts
+  explicitly (no fake consensus — see the universal mechanics). For an architecture decision, record
+  the resolved call by **editing the relevant living doc in place** — the system model in the repo's
+  own architecture / system-model doc, or the matching conventions doc for a process call. There is
+  **no decision log**: the docs are the current truth, edited in place, and git history is the audit
+  trail. Capture the synthesis — and the debate that produced it — in the **PR body** so the durable
+  record lives in git history + the PR, giving the next session external memory rather than a lost
+  context window.
+- **Coding** → each teammate hands off a **complete, gate-green slice** over its own files. Before a
+  slice enters the PR, run **one fresh, adversarial QA per coding agent** — a fresh reviewer with
+  **no prior context of the work** (not merely "not the author" — a teammate that helped design or
+  debate the slice is disqualified), that **tries to break** the slice and writes the missing test
+  cases (edge / error / boundary / malformed input, both schemes); the owning agent fixes, QA
+  re-checks (the dev↔QA loop — same shape solo, just one author→one QA). Then **you curate history**
+  (rebase onto `main`, squash fix-ups, reorder, drop false starts) and **merge-commit** it (the
+  default) — the branch's commits survive on `main` alongside the PR body. Never commit to `main`.
+  Full mechanics: [`docs/agent-workflow.md`](../../docs/agent-workflow.md) (QA loop) and
+  [`docs/git-and-pr.md`](../../docs/git-and-pr.md) (curate/merge).
+- **Shut down** teammates by name when done; the team's directories clean up automatically when the
+  session ends.

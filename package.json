@@ -1,0 +1,13 @@
+{
+  "name": "agent-conventions",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Conventions, subagent definitions, and skills for directing coding agents.",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
+  }
+}
