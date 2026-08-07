@@ -3,10 +3,16 @@
 Portable VCS discipline. The repo's own documentation wins on the specifics (exact gate commands, CI
 job names, merge consequences on the host platform); this is the shape I keep everywhere.
 
-## Never commit to `main`
+## Never commit to `main` — in repos with a gate
 
 Branch first. On any platform where merge-to-`main` is a production deploy, `main` must stay green
 and shippable at all times — so feature work never touches it directly.
+
+**This discipline is scoped to repos where something checks or ships `main`** — an app, a library,
+anything with CI or a deploy watching. A docs-only personal repo edited in place (the conventions
+repo itself is one) commits small, focused, Conventional-Commit-shaped changes directly to `main`: a
+PR with no reviewer and no CI check is ceremony, and the no-ceremony rule wins. The moment such a
+repo grows a gate, it graduates into the full workflow.
 
 - **Branch name = commit type + kebab description:** `feat/short-description`,
   `fix/short-description`, `chore/short-description`. The `type` is the _same token_ as the
@@ -79,5 +85,6 @@ slices:
 
 ## Branch protection
 
-Configure the host so the workflow can't be bypassed: require a pull request before merging, require
-the CI status check to pass, and require branches to be up to date before merge.
+Where the PR workflow applies, configure the host so it can't be bypassed: require a pull request
+before merging, require the CI status check to pass, and require branches to be up to date before
+merge. Repos outside the PR workflow's scope (see above) stay unprotected on purpose.
