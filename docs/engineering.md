@@ -66,6 +66,15 @@ reason (a spec, a standard, a deliberate decision). Never restate what the code 
 leave historical or aspirational notes — that's what git history is for. If a comment would rot the
 moment the code changes, it shouldn't exist.
 
+**The test to apply, literally: would this trip up a junior dev reading the _current_ code?** If
+not, delete it. Code and tests are self-documenting for the most part, so the bar is high and the
+expected delete rate is too. Two patterns to cut on sight: a comment narrating what the code _used
+to_ do or why it changed, and an essay-length docstring where a name would have done.
+
+**Audit comments with a separate pass, not the author.** An author defends their own comments — the
+same reason review needs fresh eyes. A read-only agent over the finished diff catches what the
+writer cannot see.
+
 ## Testing philosophy
 
 - **Vitest + React Testing Library** as the default unit/component stack.
@@ -80,3 +89,16 @@ moment the code changes, it shouldn't exist.
 - **Playwright for the primary end-to-end flow.** One real-browser test of the main user journey
   catches what unit tests in a headless DOM structurally cannot — the things that only break once
   the whole stack is wired together and actually painting.
+- **A test name says what it asserts, never who wrote it or why it exists.** No `QA edges`, no
+  `defects:`, no round or reviewer in a `describe`. A reader months later should not be able to tell
+  which tests arrived in a review pass — and a name describing the behavior is usually a better
+  explanation than a comment above the test.
+- **Don't pin what never shipped.** A review that surfaces a defect through an exotic input has done
+  its job; the suite then keeps the _invariant_, not the exotica. If the input can't actually occur
+  — the encoding forbids it, no call site exists, the type makes it unreachable — the input belongs
+  in the commit message and the invariant belongs in the test. A suite full of impossible cases
+  reads as coverage and is really archaeology.
+- **Mutation-test a new suite before trusting it.** Break the implementation deliberately and
+  confirm the tests scream. A suite never seen to fail is trusted on faith — and this is how you
+  catch the vacuous assertion (a negative check over output never confirmed to exist) and the layer
+  that can't see the bug it was written for.
