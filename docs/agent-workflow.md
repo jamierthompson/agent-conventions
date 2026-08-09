@@ -111,6 +111,28 @@ This is the non-negotiable. Gate-green is _developer-done_, not _review-done_.
 - **The lead's job is history, not rescue.** The lead rebases, squashes, reorders, and drops to tell
   the story once — but does **not** inherit responsibility for an unfinished slice. Deliver it done.
 - **Shared-branch hygiene:** `--force-with-lease`, never plain `--force`.
+- **Fresh agents every pass, on both sides of the loop** — a new reviewer each QA round _and_ a new
+  coder each fix round. A coder resumed to fix QA's findings defends the design it already chose; a
+  reviewer re-checking its own findings grades its own homework. Carry state between rounds through
+  written reports and commits, never by resuming a context.
+
+### A silent agent is working, not ignoring you
+
+An agent in an edit-accepting mode reads its inbox **only between tool calls**. While it is mid-run
+it cannot see a message you sent, and it will not act on one until it next comes to rest. Two
+consequences:
+
+- **Put everything in the opening brief.** A task added mid-flight lands unreliably — the agent may
+  reach its own definition of done and stop before it ever reads the addition. If you must add work,
+  expect to re-send it after the agent goes idle, and verify from git that it landed.
+- **Verify state before acting on an idle signal.** Idle means "at rest," not "finished" —
+  duplicates arrive, messages cross, and a buffered test run looks like silence. Check the branch
+  for commits and `git status` the worktree before you nudge, respawn, or tear anything down.
+
+**Before removing a worktree, run `git status` inside that specific worktree.** Merged commits are
+no evidence the directory is safe: an agent's finished-but-uncommitted work is invisible to the
+branch. Treat a `git worktree remove --force` that fails with _"Directory not empty"_ as the last
+warning that something is in there, not as a dependency-directory nuisance to `rm -rf` past.
 
 ## Rendered surfaces get a real browser check before "done"
 
