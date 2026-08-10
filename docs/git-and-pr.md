@@ -35,7 +35,7 @@ Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.
 - **Small and focused** — each commit is _one logical change_, complete and gate-green on its own.
 - **Description** in the imperative mood, lower-case, no trailing period.
 - **Scope** is optional but useful in a multi-package workspace (e.g. `chore(api):`).
-- **Breaking changes** signalled with `!` before the colon or a `BREAKING CHANGE:` footer.
+- **Breaking changes** signaled with `!` before the colon or a `BREAKING CHANGE:` footer.
 - The **body explains why**, not what — the diff already shows what.
 
 Even with no commitlint installed, hold the convention by discipline — it's what makes the history
