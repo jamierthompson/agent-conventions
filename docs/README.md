@@ -16,6 +16,7 @@ project.
 | [`engineering.md`](engineering.md)       | TypeScript, React, code organization, and testing philosophy.                                                                                      |
 | [`git-and-pr.md`](git-and-pr.md)         | Branching, Conventional Commits, the local-gate-mirrors-CI rule, and the curate-then-merge workflow.                                               |
 | [`web-quality.md`](web-quality.md)       | WCAG 2.2 AA + APCA contrast, Core Web Vitals budgets, the font-preload discipline, secret and dependency hygiene.                                  |
+| [`bootstrapping.md`](bootstrapping.md)   | The wiring a JS/TS repo needs before feature code: pnpm, the Prettier/ESLint ordering, the Vitest config that isn't obvious.                       |
 
 Start with **[`agent-workflow.md`](agent-workflow.md)** — everything else is downstream of it. The
 two sections that carry the most weight are _the decision loop_ and _every coding session: a lead +
